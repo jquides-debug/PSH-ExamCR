@@ -1,145 +1,72 @@
-!include "MUI2.nsh"
+﻿!include "MUI2.nsh"
+!include "x64.nsh"
 
-!define setup "open-mcr_install.exe"
-!define srcdir ".\dist\main"
-!define company "Ian Sanders"
-!define prodname "OpenMCR"
-!define exec "main\main.exe"
+!define PRODUCT "PSH Examination Checker"
+!define APPID "PSH-ExamCR"
+!define REGKEY "Software\PSH\${APPID}"
+!define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPID}"
 
-!define icon "assets\icon.ico"
+Name "${PRODUCT}"
+OutFile "dist\PSH-ExamCR-Setup.exe"
+InstallDir "$LOCALAPPDATA\Programs\${APPID}"
+InstallDirRegKey HKCU "${REGKEY}" "InstallDir"
+RequestExecutionLevel user
+Unicode true
+SetCompressor /SOLID lzma
+Icon "src\assets\icon.ico"
+!define MUI_ICON "src\assets\icon.ico"
+!define MUI_ABORTWARNING
+!define MUI_FINISHPAGE_RUN "$INSTDIR\PSH-ExamCR.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "Open ${PRODUCT}"
 
-!define regkey "Software\${prodname}"
-!define uninstkey "Software\Microsoft\Windows\CurrentVersion\Uninstall\${prodname}"
-
-!define uninstaller "uninstall.exe"
-
-; Settings ---------------------------------------------------------------------
-
-XPStyle off
-ShowInstDetails hide
-ShowUninstDetails hide
-
-Name "${prodname}"
-Caption "${prodname} Installer"
-
-!ifdef icon
-  Icon "${srcdir}\${icon}"
-  !define MUI_ICON "${srcdir}\${icon}"
-!endif
-
-OutFile "${setup}"
-
-SetDateSave on
-SetDatablockOptimize on
-CRCCheck on
-SilentInstall normal
-
-InstallDir "$PROGRAMFILES\${prodname}"
-InstallDirRegKey HKLM "${regkey}" ""
-
-; MUI Settings -----------------------------------------------------------------
-
-!define MUI_DIRECTORYPAGE_TEXT_DESTINATION "Select a directory to install the program to:"
-!define MUI_DIRECTORYPAGE_TEXT_TOP "This will install the ${prodname} utility to your machine.$\r$\n$\r$\nNOTE: If you encounter an 'Error opening file for writing' during installation, abort installation, restart your computer, and try again. If you encounter any futher errors, submit a bug on the project's GitHub page."
-
-!define MUI_STARTMENUPAGE_REGISTRY_ROOT "HKCU" 
-!define MUI_STARTMENUPAGE_REGISTRY_KEY "${regkey}"
-!define MUI_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
-!define MUI_STARTMENUPAGE_TEXT_CHECKBOX "Don't create start menu folder"
-
-!define MUI_FINISHPAGE_TITLE "Installation Complete"
-!define MUI_FINISHPAGE_TEXT "Thank you! ${prodname} installation is complete."
-!define MUI_FINISHPAGE_BUTTON "Finish"
-!define MUI_FINISHPAGE_RUN "$INSTDIR\${exec}"
-!define MUI_FINISHPAGE_RUN_TEXT "Run ${prodname}"
-
-; Pages ------------------------------------------------------------------------
-
-Var StartMenuFolder
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE "license.txt"
 !insertmacro MUI_PAGE_DIRECTORY
-!insertmacro MUI_PAGE_STARTMENU Application $StartMenuFolder
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
-
-UninstPage uninstConfirm
-UninstPage instfiles
-
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_LANGUAGE "English"
 
+Function .onInit
+  ${IfNot} ${RunningX64}
+    MessageBox MB_ICONSTOP "This application requires 64-bit Windows."
+    Abort
+  ${EndIf}
+  SetShellVarContext current
+FunctionEnd
 
-AutoCloseWindow false
-ShowInstDetails show
-
-Section
-  WriteRegStr HKLM "${regkey}" "Install_Dir" "$INSTDIR"
-  WriteRegStr HKLM "${uninstkey}" "DisplayName" "${prodname} (remove only)"
-  WriteRegStr HKLM "${uninstkey}" "UninstallString" '"$INSTDIR\${uninstaller}"'
-
-  WriteRegStr HKCR "${prodname}\Shell\open\command\" "" '"$INSTDIR\${exec} "%1"'
-
-  !ifdef icon
-    WriteRegStr HKCR "${prodname}\DefaultIcon" "" "$INSTDIR\${icon}"
-  !endif
-
-  SetOutPath $INSTDIR
-
-  File /a /r "${srcdir}"
-
-  !ifdef icon
-    File /a "${srcdir}\${icon}"
-  !endif
-
-  WriteUninstaller "${uninstaller}"
+Section "Application"
+  SetOutPath "$INSTDIR"
+  File /r "dist\PSH-ExamCR\*.*"
+  File "license.txt"
+  File "readme.md"
+  WriteUninstaller "$INSTDIR\Uninstall.exe"
+  CreateDirectory "$SMPROGRAMS\${PRODUCT}"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT}\${PRODUCT}.lnk" "$INSTDIR\PSH-ExamCR.exe"
+  CreateShortcut "$SMPROGRAMS\${PRODUCT}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+  WriteRegStr HKCU "${REGKEY}" "InstallDir" "$INSTDIR"
+  WriteRegStr HKCU "${UNINSTKEY}" "DisplayName" "${PRODUCT}"
+  WriteRegStr HKCU "${UNINSTKEY}" "Publisher" "Philippine Society of Hypertension"
+  WriteRegStr HKCU "${UNINSTKEY}" "DisplayIcon" "$INSTDIR\PSH-ExamCR.exe"
+  WriteRegStr HKCU "${UNINSTKEY}" "InstallLocation" "$INSTDIR"
+  WriteRegStr HKCU "${UNINSTKEY}" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
+  WriteRegDWORD HKCU "${UNINSTKEY}" "NoModify" 1
+  WriteRegDWORD HKCU "${UNINSTKEY}" "NoRepair" 1
 SectionEnd
-
-Section
-  SetOutPath $INSTDIR ; for working directory
-
-  !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
-    CreateDirectory "$SMPROGRAMS\$StartMenuFolder"
-    CreateShortcut "$SMPROGRAMS\$StartMenuFolder\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
-    !ifdef icon
-      CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${prodname}.lnk" "$INSTDIR\${exec}" "" "$INSTDIR\${icon}"
-    !else
-      CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${prodname}.lnk" "$INSTDIR\${exec}"
-    !endif
-  !insertmacro MUI_STARTMENU_WRITE_END
-SectionEnd
-
-; Uninstaller ------------------------------------------------------------------
-UninstallText "This will uninstall ${prodname}."
-
-!ifdef icon
-  UninstallIcon "${srcdir}\${icon}"
-!endif
 
 Section "Uninstall"
-
-  DeleteRegKey HKLM "${uninstkey}"
-
-  !insertmacro MUI_STARTMENU_GETFOLDER Application $StartMenuFolder
-
-  Delete "$SMPROGRAMS\$StartMenuFolder\*.*"
-  Delete "$SMPROGRAMS\$StartMenuFolder"
-
-  !ifdef licensefile
-    Delete "$INSTDIR\${licensefile}"
-  !endif
-
-  !ifdef notefile
-    Delete "$INSTDIR\${notefile}"
-  !endif
-
-  !ifdef icon
-    Delete "$INSTDIR\${icon}"
-  !endif
-
-  Delete "$INSTDIR"
-
-  !ifdef unfiles
-    !include "${unfiles}"
-  !endif
-
-  DeleteRegKey HKLM "${regkey}"
+  SetShellVarContext current
+  Delete "$SMPROGRAMS\${PRODUCT}\${PRODUCT}.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT}\Uninstall.lnk"
+  RMDir "$SMPROGRAMS\${PRODUCT}"
+  ; Only the packaged runtime folder is removed recursively. User data belongs outside it.
+  RMDir /r "$INSTDIR\_internal"
+  Delete "$INSTDIR\PSH-ExamCR.exe"
+  Delete "$INSTDIR\license.txt"
+  Delete "$INSTDIR\readme.md"
+  Delete "$INSTDIR\Uninstall.exe"
+  RMDir "$INSTDIR"
+  DeleteRegKey HKCU "${UNINSTKEY}"
+  DeleteRegKey HKCU "${REGKEY}"
 SectionEnd

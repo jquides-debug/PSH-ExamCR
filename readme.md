@@ -30,33 +30,18 @@ The PSH name identifies this adaptation. Credit for the original OpenMCR softwar
 
 Written names are not transcribed. Recognition depends on the configured bubble positions and corner markers, so a redesigned form must preserve the supported layout.
 
-## Getting started
+## Installation for PSH staff
 
-### Run from source
+This application is intended for internal use by the Philippine Society of Hypertension on 64-bit Windows computers.
 
-Install Python with Tkinter support and pip. The repository's CI configuration targets Python 3.10; dependency versions are listed in [requirements.txt](requirements.txt).
+1. Obtain `PSH-ExamCR-Setup.exe` from your PSH application administrator.
+2. Run the installer and follow the on-screen instructions. It installs for your Windows account without requiring administrator privileges.
+3. Open **PSH Examination Checker** from the Start menu.
+4. Use **Help** inside the application for the operating guide and **Print Form** for the bundled answer sheet.
 
-From a terminal, clone this fork and install its dependencies in a virtual environment:
+Python and developer tools are bundled or unnecessary; staff do not need to install them separately. An application that supports Excel workbooks is needed to open the exported workbook externally.
 
-```powershell
-git clone https://github.com/jquides-debug/PSH-ExamCR.git
-cd PSH-ExamCR
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe src/main_gui.py
-```
-
-These commands are for Windows PowerShell. On macOS or Linux, use `.venv/bin/python` in place of `.\.venv\Scripts\python.exe` and ensure Tkinter is available in your Python installation.
-
-### Command-line interface
-
-From the repository directory, using the same virtual environment:
-
-```powershell
-.\.venv\Scripts\python.exe src/main.py "path/to/scans" "path/to/output" --anskeys "path/to/answer-key.csv" --sort
-```
-
-Omit `--anskeys` to export detected responses without scoring. Run `src/main.py --help` with the same Python executable for all available options.
+Close the application before installing an update. To remove it, open Windows **Settings > Apps > Installed apps**, select **PSH Examination Checker**, and choose **Uninstall**. Keep examination scans and exported results in your own folders outside the application installation directory.
 
 ## Examination workflow
 
@@ -95,11 +80,9 @@ Each batch normally produces timestamped files.
 
 Calculated scores appear in `scores.csv` and the results window. Red response highlighting is available in the Excel workbook; CSV files do not store colors.
 
-## Feedback and development
+## Support
 
-Report issues with this adaptation through the [PSH-ExamCR issue tracker](https://github.com/jquides-debug/PSH-ExamCR/issues). Include the steps to reproduce the issue and the error message, if any.
-
-The [original OpenMCR repository](https://github.com/iansan5653/open-mcr) remains the upstream reference for the project's origins and original implementation.
+Contact your PSH application administrator for installation assistance, updates, or problems with examination processing. Include the steps that led to the issue and any error message.
 
 ## License and attribution
 
@@ -116,3 +99,4 @@ See [license.txt](license.txt) for the full software license. This fork preserve
 The multiple-choice sheet is licensed separately under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International license (CC BY-NC-SA 4.0)**. The original notice permits sharing and modification with attribution, under the same license, and for noncommercial purposes. See the [full answer-sheet license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 The original project also explicitly allows distribution of the **unmodified** sheet without attribution when used for educational purposes, provided that it is not presented as your own work. This exception is retained from the original README.
+
