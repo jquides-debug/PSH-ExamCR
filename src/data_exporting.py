@@ -5,6 +5,9 @@ import os
 import pathlib
 import typing as tp
 from datetime import datetime
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 import list_utils
 from grid_info import Field, RealOrVirtualField, VirtualField
@@ -15,7 +18,7 @@ COLUMN_NAMES: tp.Dict[RealOrVirtualField, str] = {
     Field.FIRST_NAME: "First Name",
     Field.MIDDLE_NAME: "Middle Name",
     Field.TEST_FORM_CODE: "Test Form Code",
-    Field.STUDENT_ID: "Student ID",
+    Field.STUDENT_ID: "Examinee ID",
     Field.COURSE_ID: "Course ID",
     Field.IMAGE_FILE: 'Source File',
     VirtualField.SCORE: "Total Score (%)",
@@ -90,6 +93,38 @@ class OutputSheet():
             for row in self.data
         ]
 
+    def save_excel(self, path: pathlib.PurePath,
+                   timestamp: tp.Optional[datetime]) -> pathlib.PurePath:
+        """Save reviewable answers with multiple-marked questions highlighted."""
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Answers"
+        red_fill = PatternFill(fill_type="solid", fgColor="FFFFC7CE")
+        red_font = Font(color="FF9C0006")
+        for row_index, row in enumerate(self.data, 1):
+            for column_index, value in enumerate(row, 1):
+                cell = sheet.cell(row_index, column_index, value)
+                # Preserve IDs, leading zeroes and filenames as literal text.
+                cell.data_type = "s"
+                if row_index == 1:
+                    cell.fill = PatternFill(fill_type="solid", fgColor="FF64121E")
+                    cell.font = Font(color="FFFFFFFF", bold=True)
+                elif column_index > self.first_question_column_index and (
+                        value == "F" or (value.startswith("[")
+                                         and value.endswith("]") and "|" in value)):
+                    cell.fill = red_fill
+                    cell.font = red_font
+        sheet.freeze_panes = f"{get_column_letter(self.first_question_column_index + 1)}2"
+        sheet.auto_filter.ref = sheet.dimensions
+        for index, heading in enumerate(self.data[0], 1):
+            sheet.column_dimensions[get_column_letter(index)].width = (
+                30 if heading == "Source File" else
+                20 if index <= self.first_question_column_index else 9)
+        output_path = path / f"{format_timestamp_for_file(timestamp)}results.xlsx"
+        workbook.save(output_path)
+        workbook.close()
+        return output_path
+
     def sortByName(self):
         data = self.data[1:]
         col_names = self.data[0]
@@ -103,11 +138,17 @@ class OutputSheet():
         except StopIteration:
             try:
                 primary_index = list_utils.find_index(
-                    col_names, COLUMN_NAMES[Field.TEST_FORM_CODE])
+                    col_names, COLUMN_NAMES[Field.STUDENT_ID])
                 secondary_index = None
                 tertiary_index = None
             except StopIteration:
-                return
+                try:
+                    primary_index = list_utils.find_index(
+                        col_names, COLUMN_NAMES[Field.TEST_FORM_CODE])
+                    secondary_index = None
+                    tertiary_index = None
+                except StopIteration:
+                    return
         if tertiary_index is not None:
             data = sorted(data, key=operator.itemgetter(tertiary_index))
         if secondary_index is not None:
@@ -130,6 +171,7 @@ class OutputSheet():
         with open(str(csvfile), 'r', newline='') as file:
             reader = csv.reader(file)
             names = next(reader)
+            first_answer_index = list_utils.find_index(names, "Q1")
             # The fields that correspond with the columns
             keys: tp.List[tp.Union[RealOrVirtualField, None]] = []
             for name in names:
@@ -143,9 +185,9 @@ class OutputSheet():
                 fields = {
                     key: value
                     for key, value in list(zip(keys, row))
-                    [:self.first_question_column_index] if key is not None
+                    [:first_answer_index] if key is not None
                 }
-                answers = row[self.first_question_column_index:]
+                answers = row[first_answer_index:]
                 self.add(fields, answers)
 
     def clean_up(self, replace_empty_with: str = ""):

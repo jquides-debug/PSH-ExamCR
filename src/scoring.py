@@ -56,12 +56,11 @@ def score_results(results: data_exporting.OutputSheet,
                   answer_keys: data_exporting.OutputSheet,
                   num_questions: int) -> data_exporting.OutputSheet:
     answers = results.data
-    keys = establish_key_dict(answer_keys)
-    form_code_column_name = data_exporting.COLUMN_NAMES[
-        grid_info.Field.TEST_FORM_CODE]
-    form_code_index = list_utils.find_index(answers[0], form_code_column_name)
-    answers_start_index = list_utils.find_index(
-        answers[0][form_code_index + 1:], "Q1") + form_code_index + 1
+    if answer_keys.row_count != 1:
+        raise ValueError("Use exactly one answer key per batch.")
+    key_start = list_utils.find_index(answer_keys.data[0], "Q1")
+    keys = {"*": answer_keys.data[1][key_start:]}
+    answers_start_index = list_utils.find_index(answers[0], "Q1")
     virtual_fields: tp.List[grid_info.RealOrVirtualField] = [
         grid_info.VirtualField.SCORE, grid_info.VirtualField.POINTS
     ]
@@ -73,7 +72,7 @@ def score_results(results: data_exporting.OutputSheet,
             k: v
             for k, v in zip(results.field_columns, exam[:answers_start_index])
         }
-        form_code = exam[form_code_index]
+        form_code = "*"
         try:
             if "*" in keys:
                 key = keys["*"]
@@ -103,12 +102,11 @@ def verify_answer_key_sheet(file_path: pathlib.Path) -> bool:
     try:
         with open(str(file_path), newline='') as file:
             reader = csv.reader(file)
-            keys_column_name = data_exporting.COLUMN_NAMES[
-                grid_info.Field.TEST_FORM_CODE]
             names = next(reader)
-            keys_column_name_index = list_utils.find_index(
-                names, keys_column_name)
-            list_utils.find_index(names[keys_column_name_index:], "Q1")
+            first_answer = list_utils.find_index(names, "Q1")
+            rows = list(reader)
+            if len(rows) != 1 or len(rows[0]) <= first_answer:
+                return False
         return True
     except Exception:
         return False

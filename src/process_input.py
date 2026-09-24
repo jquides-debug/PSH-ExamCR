@@ -33,9 +33,13 @@ def process_input(
     If progress_tracker parameter is None, prints all progress statuses to stdout.
     """
 
-    answers_results = data_exporting.OutputSheet([x for x in grid_i.Field],
+    # Export only fields actually read from this form, plus the source filename.
+    result_fields = [field for field in grid_i.Field
+                     if form_variant.fields.get(field) is not None
+                     or field == grid_i.Field.IMAGE_FILE]
+    answers_results = data_exporting.OutputSheet(result_fields,
                                                  form_variant.num_questions)
-    keys_results = data_exporting.OutputSheet([grid_i.Field.TEST_FORM_CODE, grid_i.Field.IMAGE_FILE],
+    keys_results = data_exporting.OutputSheet([grid_i.Field.IMAGE_FILE],
                                               form_variant.num_questions)
 
     rejected_files = data_exporting.OutputSheet([grid_i.Field.IMAGE_FILE], 0)
@@ -46,6 +50,8 @@ def process_input(
         data_exporting.make_dir_if_not_exists(debug_dir)
 
     try:
+        if arrangement_file:
+            raise ValueError("Form arrangement maps are not supported. Use one answer key per batch.")
         for image_path in image_paths:
             if debug_mode_on:
                 debug_path = debug_dir / image_path.stem
@@ -117,14 +123,12 @@ def process_input(
                 grid_i.Field.STUDENT_ID, grid, threshold, form_variant,
                 field_fill_percents[grid_i.Field.STUDENT_ID])
             if student_id == grid_i.KEY_STUDENT_ID:
-                form_code_field = grid_i.Field.TEST_FORM_CODE
-                field_data[form_code_field] = grid_r.read_field_as_string(
-                    form_code_field, grid, threshold, form_variant,
-                    field_fill_percents[form_code_field]) or ""
                 keys_results.add(field_data, answers)
 
             else:
                 for field in form_variant.fields.keys():
+                    if form_variant.fields[field] is None:
+                        continue
                     field_value = grid_r.read_field_as_string(
                         field, grid, threshold, form_variant,
                         field_fill_percents[field])
@@ -140,6 +144,7 @@ def process_input(
                              "results",
                              sort_results,
                              timestamp=files_timestamp)
+        workbook_path = answers_results.save_excel(output_folder, files_timestamp)
 
         if rejected_files.row_count == 0:
             success_string = "✔️ All exams processed and saved.\n"
@@ -148,39 +153,16 @@ def process_input(
             rejected_files.save(output_folder, "rejected_files", sort=False, timestamp=files_timestamp)
 
         if keys_file:
+            keys_results = data_exporting.OutputSheet(
+                [grid_i.Field.IMAGE_FILE], form_variant.num_questions)
             keys_results.add_file(keys_file)
 
+        if keys_results.row_count > 1:
+            raise ValueError("Use exactly one answer key per batch.")
+
+        scores = None
         if (keys_results.row_count == 0):
             success_string += "No exam keys were found, so no scoring was performed."
-        elif (arrangement_file and keys_results.row_count == 1):
-            answers_results.reorder(arrangement_file)
-            keys_results.data[1][keys_results.field_columns.index(
-                grid_i.Field.TEST_FORM_CODE)] = ""
-
-            answers_results.save(output_folder,
-                                 "rearranged_results",
-                                 sort_results,
-                                 timestamp=files_timestamp)
-            success_string += "✔️ Results rearranged based on arrangement file.\n"
-
-            keys_results.delete_field_column(grid_i.Field.TEST_FORM_CODE)
-            keys_results.save(output_folder,
-                              "key",
-                              sort_results,
-                              timestamp=files_timestamp,
-                              transpose=True)
-
-            success_string += "✔️ Key processed and saved.\n"
-
-            scores = scoring.score_results(answers_results, keys_results,
-                                           form_variant.num_questions)
-            scores.save(output_folder,
-                        "rearranged_scores",
-                        sort_results,
-                        timestamp=files_timestamp)
-            success_string += "✔️ Scored results processed and saved."
-        elif (arrangement_file):
-            success_string += "❌ Arrangement file and keys were ignored because more than one key was found."
         else:
             keys_results.save(output_folder,
                               "keys",
@@ -200,6 +182,8 @@ def process_input(
 
         if progress_tracker:
             progress_tracker.set_status(success_string, False)
+            progress_tracker.show_results(answers_results, scores, workbook_path,
+                                          rejected_files.row_count, keys_results)
         else:
             print(success_string)
     except (RuntimeError, ValueError) as e:

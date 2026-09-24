@@ -30,7 +30,7 @@ def create_keys_files(keys_results: OutputSheet, output_folder: pathlib.Path, fi
     form_code_col = keys_results.form_code_column_index
 
     for row in keys_results.data[1:]:
-        code = row[form_code_col]
+        code = row[form_code_col] if form_code_col is not None else "exam"
         csv_data = build_key_csv(row[keys_results.first_question_column_index:])
         save_mcta_csv(csv_data, output_folder, f"{code}_key", files_timestamp)
 
@@ -50,7 +50,7 @@ def create_answers_files(answers_results: OutputSheet,
     
     # Preserve the original index for naming students anonymously
     # List of tuples of (form code, original index, answers)
-    answers_with_form_code = [(row[form_code_col], i, row[first_question_col:]) for (i, row) in enumerate(answers_results.data[1:])]
+    answers_with_form_code = [(row[form_code_col] if form_code_col is not None else "exam", i, row[first_question_col:]) for (i, row) in enumerate(answers_results.data[1:])]
     
     # groupby requires sorted input
     sorted_by_code = sorted(answers_with_form_code, key=lambda x: x[0])

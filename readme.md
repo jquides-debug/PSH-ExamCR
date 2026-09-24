@@ -79,7 +79,6 @@ For development, a pre-made environment is available in [Codespaces](https://git
 The multiple choice sheet that must be used with this software is available
 for printing here:
 
-* [75 Question Variant](https://github.com/iansan5653/open-mcr/raw/master/src/assets/multiple_choice_sheet_75q.pdf)
 * [150 Question Variant](https://github.com/iansan5653/open-mcr/raw/master/src/assets/multiple_choice_sheet_150q.pdf)
 
 ## Usage Instructions

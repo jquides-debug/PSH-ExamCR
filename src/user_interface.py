@@ -1,10 +1,11 @@
 import abc
 import enum
+import os
+import re
 from pathlib import Path
 import subprocess
-import sys
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 import typing as tp
 import platform
 
@@ -14,9 +15,56 @@ import str_utils
 
 YPADDING = 4
 XPADDING = 7
-APP_NAME = "OpenMCR"
+APP_NAME = "PSH-Examination Checker"
+INK = "#64121e"
+ACCENT = "#ae2034"
+MUTED = "#626773"
+LINE = "#eadde0"
+PAPER = "#fcf8f8"
 
-PackTarget = tp.Union[tk.Tk, tk.Frame]
+
+def configure_theme(app: tk.Tk):
+    """Apply the PSH website palette to the native desktop controls."""
+    app.configure(background=PAPER)
+    app.option_add("*Frame.background", "#ffffff")
+    style = ttk.Style(app)
+    style.theme_use("clam")
+    style.configure(".", font=("Arial", 10), background="#ffffff",
+                    foreground=INK)
+    style.configure("TLabel", foreground=MUTED)
+    style.configure("Heading.TLabel", font=("Arial", 10, "bold"), foreground=INK)
+    style.configure("Brand.TLabel", font=("Arial", 13, "bold"), foreground=INK)
+    style.configure("Hero.TLabel", font=("Georgia", 27), background=PAPER,
+                    foreground=INK)
+    style.configure("Badge.TLabel", font=("Arial", 9, "bold"),
+                    background="#f3e2e5", foreground=ACCENT, padding=(12, 6))
+    style.configure("Path.TLabel", background=PAPER, padding=8)
+    style.configure("TButton", padding=(12, 8), background="#ffffff",
+                    foreground=INK, bordercolor=LINE, borderwidth=1)
+    style.map("TButton", background=[("active", "#f3e2e5")],
+              foreground=[("disabled", "#969099")])
+    style.configure("Primary.TButton", background=INK, foreground="#ffffff",
+                    font=("Arial", 10, "bold"), padding=(22, 11))
+    style.map("Primary.TButton",
+              background=[("disabled", "#eadde0"), ("active", ACCENT)],
+              foreground=[("disabled", "#76636a"), ("!disabled", "#ffffff")])
+    style.configure("TCheckbutton", foreground=INK, padding=3)
+    style.map("TCheckbutton", background=[("active", PAPER)],
+              foreground=[("disabled", "#969099")])
+    style.configure("TSeparator", background=LINE)
+    style.configure("Horizontal.TProgressbar", background=ACCENT,
+                    troughcolor=PAPER, bordercolor=LINE)
+
+
+def create_card(parent: tk.Misc, number: str, title: str) -> tk.Frame:
+    card = tk.Frame(parent, highlightbackground=LINE, highlightthickness=1,
+                    padx=12, pady=12)
+    tk.Frame(card, background=ACCENT, width=32, height=3).pack(anchor="w", padx=7)
+    ttk.Label(card, text=f"{number}  /  {title}", style="Heading.TLabel").pack(
+        anchor="w", padx=7, pady=(12, 14))
+    return card
+
+PackTarget = tk.Misc
 
 
 def prompt_folder(message: str = "Select Folder", default: str = "./") -> Path:
@@ -50,16 +98,19 @@ def create_and_pack_label(parent: PackTarget,
                           heading: bool = False,
                           inline: bool = False) -> ttk.Label:
     """Create a label using the predefined font settings, pack it, and return it."""
-    font_opt = {"font": "TkDefaultFont 10 bold"} if heading else {}
+    font_opt = {"style": "Heading.TLabel"} if heading else {}
     pady_opt = {"pady": (YPADDING * 2, 0)} if heading else {"pady": YPADDING}
     label = ttk.Label(parent,
                       text=text,
                       justify=tk.LEFT,
                       anchor="w",
                       **font_opt)
+    if not inline:
+        label.bind("<Configure>", lambda event: label.configure(
+            wraplength=max(100, event.width)))
     return pack(label,
                 fill=tk.X if not inline else None,
-                expand=1,
+                expand=False,
                 padx=XPADDING,
                 side=tk.LEFT if inline else None,
                 **pady_opt)
@@ -91,17 +142,18 @@ class PickerWidget(abc.ABC):
         self.__display_text = tk.StringVar()
         pack(ttk.Label(container,
                        textvariable=self.__display_text,
-                       width=40,
+                       width=20,
                        justify=tk.LEFT,
                        anchor="w",
-                       borderwidth=2,
-                       relief="groove",
+                       style="Path.TLabel",
                        padding=internal_padding),
              **pack_opts,
-             padx=external_padding)
+             padx=external_padding,
+             fill=tk.X,
+             expand=True)
 
         self.__display_text.set(placeholder)
-        pack(container)
+        pack(container, fill=tk.X)
         self.value = None
 
     @abc.abstractmethod
@@ -121,6 +173,12 @@ class PickerWidget(abc.ABC):
 
     def disable(self):
         self.__browse_button.configure(state=tk.DISABLED)
+
+    def clear(self):
+        self.value = None
+        self.__display_text.set(self.__placeholder)
+        if self.__on_change is not None:
+            self.__on_change()
 
 
 class FolderPickerWidget(PickerWidget):
@@ -167,11 +225,10 @@ class CheckboxWidget():
                                                text=label,
                                                command=self.__on_update,
                                                variable=self.__raw_value,
-                                               padding=internal_padding,
-                                               width=50),
+                                               padding=internal_padding),
                                **pack_opts,
                                padx=(external_padding, 0))
-        frame.pack()
+        frame.pack(fill=tk.X)
 
         self.value = False
 
@@ -199,15 +256,16 @@ class SelectWidget():
         container = tk.Frame(parent)
         create_and_pack_label(container, label, inline=True)
         self.__combobox = pack(ttk.Combobox(container,
-                                            width=35,
+                                            width=16,
+                                            state="readonly",
                                             textvariable=self.__raw_value,
                                             values=options),
-                               side=tk.RIGHT)
+                               side=tk.RIGHT, padx=XPADDING)
         self.__combobox.current(0)
 
-        self.__raw_value.trace("w", self.__on_update)
+        self.__raw_value.trace_add("write", self.__on_update)
         self.value = self.__raw_value.get()
-        pack(container)
+        pack(container, fill=tk.X)
 
     def __on_update(self, *args: tp.Any):
         self.value = self.__raw_value.get()
@@ -219,7 +277,6 @@ class SelectWidget():
 
 
 class FormVariantSelection(enum.Enum):
-    VARIANT_75_Q = enum.auto()
     VARIANT_150_Q = enum.auto()
 
 
@@ -239,37 +296,30 @@ class InputFolderPickerWidget():
         create_and_pack_label(container, "Select Input Folder", heading=True)
         create_and_pack_label(
             container,
-            "Select a folder containing the scanned multiple choice sheets.\nSheets with Student ID of '9999999999' will be treated as keys.\nAll image files in the selected folder will be processed, ignoring subfolders."
+            "Choose your scanned answer sheets. All images in this folder are processed; subfolders are ignored."
         )
 
         self.__input_folder_picker = FolderPickerWidget(
             container, self.__on_update)
         self.__multi_answers_as_f_checkbox = CheckboxWidget(
-            container, "Convert multiple answers in a question to 'F'.",
+            container, "Save multiple answers as 'F'",
             self.__on_update)
         self.__empty_answers_as_g_checkbox = CheckboxWidget(
-            container, "Save empty answers in questions as 'G'.",
+            container, "Save empty answers as 'G'",
             self.__on_update, True)
-        self.__form_variant_picker = SelectWidget(
-            container, "Form Variant:", ["75 questions", "150 questions"],
-            self.__on_update)
+        create_and_pack_label(container, "Answer sheet: 150 questions")
 
         pack(container, fill=tk.X)
 
         self.folder = None
         self.multi_answers_as_f = False
         self.empty_answers_as_g = False
-        self.form_variant = FormVariantSelection.VARIANT_75_Q
+        self.form_variant = FormVariantSelection.VARIANT_150_Q
 
     def __on_update(self, *args: tp.Any):
         self.folder = self.__input_folder_picker.value
         self.multi_answers_as_f = self.__multi_answers_as_f_checkbox.value
         self.empty_answers_as_g = self.__empty_answers_as_g_checkbox.value
-        selected_form_variant = self.__form_variant_picker.value
-        if (selected_form_variant == "75 questions"):
-            self.form_variant = FormVariantSelection.VARIANT_75_Q
-        elif (selected_form_variant == "150 questions"):
-            self.form_variant = FormVariantSelection.VARIANT_150_Q
 
         if self.__on_change is not None:
             self.__on_change()
@@ -278,7 +328,9 @@ class InputFolderPickerWidget():
         self.__input_folder_picker.disable()
         self.__multi_answers_as_f_checkbox.disable()
         self.__empty_answers_as_g_checkbox.disable()
-        self.__form_variant_picker.disable()
+
+    def clear_folder(self):
+        self.__input_folder_picker.clear()
 
 
 class OutputFolderPickerWidget():
@@ -296,12 +348,12 @@ class OutputFolderPickerWidget():
 
         create_and_pack_label(container, "Select Output Folder", heading=True)
         create_and_pack_label(container,
-                              "Select a folder to save output files to.")
+                              "Save CSV files and an Excel review workbook. Multiple answers are highlighted red in Excel.")
 
         self.__output_folder_picker = FolderPickerWidget(
             container, self.__on_update)
         self.__sort_results_checkbox = CheckboxWidget(
-            container, "Sort results by students' names.",
+            container, "Sort results by Examinee ID",
             self.__on_sort_update)
         self.__output_mcta_checkbox = CheckboxWidget(
             container, "Output additional files for MCTA.",
@@ -331,6 +383,9 @@ class OutputFolderPickerWidget():
         self.__sort_results_checkbox.disable()
         self.__output_mcta_checkbox.disable()
 
+    def clear_folder(self):
+        self.__output_folder_picker.clear()
+
 
 class AnswerKeyPickerWidget():
     file: tp.Optional[Path]
@@ -343,11 +398,11 @@ class AnswerKeyPickerWidget():
         container = tk.Frame(parent)
 
         create_and_pack_label(container,
-                              "Select Answer Keys File (Optional)",
+                              "Answer key CSV (optional)",
                               heading=True)
         create_and_pack_label(
             container,
-            "Select a CSV file containing the answer keys.\nIf provided, these keys will be used over any keys found in sheets.\nSee 'Help' for formatting instructions."
+            "Select a CSV file containing one answer key for scoring.\nSee 'Help' for formatting instructions."
         )
 
         self.__answer_key_picker = FilePickerWidget(container,
@@ -367,45 +422,173 @@ class AnswerKeyPickerWidget():
         self.__answer_key_picker.disable()
 
 
-class ArrangementMapPickerWidget():
-    file: tp.Optional[Path]
+def enable_table_sorting(table: ttk.Treeview, numeric_columns=()):
+    """Sort rows in place, preserving item identities, selection and tags."""
+    titles = {column: table.heading(column, "text") for column in table["columns"]}
+    state = {"column": None, "descending": False}
 
-    def __init__(self,
-                 parent: PackTarget,
-                 on_change: tp.Optional[tp.Callable] = None):
-        self.__on_change = on_change
+    def apply_sort():
+        column = state["column"]
+        if column is None:
+            return
+        valid, missing = [], []
+        for item in table.get_children():
+            value = table.set(item, column).strip()
+            if column in numeric_columns:
+                try:
+                    key = float(value)
+                except ValueError:
+                    missing.append(item)
+                    continue
+            else:
+                # Natural order: Q2 before Q10, scan2 before scan10.
+                key = tuple((1, int(part)) if part.isdigit() else (0, part.casefold())
+                            for part in re.split(r"(\d+)", value))
+            valid.append((key, item))
+        ordered = [item for _, item in sorted(
+            valid, key=lambda pair: pair[0], reverse=state["descending"])] + missing
+        for position, item in enumerate(ordered):
+            table.move(item, "", position)
+        for name, title in titles.items():
+            marker = (" ▼" if state["descending"] else " ▲") if name == column else ""
+            table.heading(name, text=title + marker)
 
-        container = tk.Frame(parent)
+    def toggle(column):
+        state["descending"] = not state["descending"] if state["column"] == column else False
+        state["column"] = column
+        apply_sort()
 
-        create_and_pack_label(container,
-                              "Select Form Arrangement Map File (Optional)",
-                              heading=True)
-        create_and_pack_label(
-            container,
-            "Select a CSV file containing information about the relative order of each key.\nIf provided, only one answer key may be provided.\nSee 'Help' for formatting instructions."
-        )
+    for column in titles:
+        table.heading(column, command=lambda name=column: toggle(name))
+    return apply_sort
 
-        self.__arrangement_map_picker = FilePickerWidget(
-            container, [("CSV Files", "*.csv")], self.__on_update)
 
-        pack(container, fill=tk.X)
+class ResultsWindow(tk.Toplevel):
+    """Browse saved examinees and review one answer sheet at a time."""
 
-        self.file = None
+    def __init__(self, parent, results, scores, workbook_path, rejected_count, answer_key=None):
+        super().__init__(parent)
+        self.title(f"{APP_NAME} - Results")
+        self.geometry("1280x700")
+        self.minsize(1100, 520)
+        self.configure(background=PAPER)
+        ttk.Label(self, text="Examination results", style="Hero.TLabel").pack(
+            anchor="w", padx=24, pady=(20, 8))
+        ttk.Label(self, background=PAPER,
+                  text=f"{results.row_count} examinees  |  {rejected_count} rejected scans  |  Select an examinee to review answers.").pack(
+            anchor="w", padx=24, pady=(0, 16))
+        body = tk.Frame(self, background=PAPER)
+        body.pack(fill=tk.BOTH, expand=True, padx=24)
+        body.columnconfigure(0, weight=3)
+        body.columnconfigure(1, weight=2)
+        body.columnconfigure(2, weight=2)
+        body.rowconfigure(0, weight=1)
+        left = tk.Frame(body)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 16))
+        right = tk.Frame(body)
+        right.grid(row=0, column=1, columnspan=2, sticky="nsew")
+        for frame in (left, right):
+            frame.rowconfigure(0, weight=1)
+            frame.columnconfigure(0, weight=1)
 
-    def __on_update(self):
-        self.file = self.__arrangement_map_picker.value
-        if self.__on_change is not None:
-            self.__on_change()
+        self.examinees = ttk.Treeview(left, columns=("id", "source", "score"),
+                                     show="headings", selectmode="browse")
+        for name, title, width in (("id", "Examinee ID", 150),
+                                   ("source", "Source File", 200),
+                                   ("score", "Score (%)", 100)):
+            self.examinees.heading(name, text=title)
+            self.examinees.column(name, width=width, minwidth=70)
+        self.answers = ttk.Treeview(right, columns=("question", "answer", "comparison", "key", "result"),
+                                    show="headings", selectmode="browse")
+        for column, title, width in (("question", "Question", 80),
+                                     ("answer", "Detected answer", 130),
+                                     ("comparison", "", 45),
+                                     ("key", "Answer key", 110),
+                                     ("result", "Result", 110)):
+            self.answers.heading(column, text=title)
+            self.answers.column(column, width=width, minwidth=40, anchor="center")
+        self.answers.tag_configure("incorrect", background="#ffc7ce", foreground="#9c0006")
+        self.answers.tag_configure("multiple", background="#ffc7ce", foreground="#9c0006")
+        enable_table_sorting(self.examinees, numeric_columns=("score",))
+        sort_answers = enable_table_sorting(self.answers)
+        for frame, table in ((left, self.examinees), (right, self.answers)):
+            table.grid(row=0, column=0, sticky="nsew")
+            scrollbar = ttk.Scrollbar(frame, orient="vertical", command=table.yview)
+            scrollbar.grid(row=0, column=1, sticky="ns")
+            horizontal = ttk.Scrollbar(frame, orient="horizontal", command=table.xview)
+            horizontal.grid(row=1, column=0, sticky="ew")
+            table.configure(yscrollcommand=scrollbar.set, xscrollcommand=horizontal.set)
 
-    def disable(self):
-        self.__arrangement_map_picker.disable()
+        headings = results.data[0]
+        id_index = headings.index("Examinee ID")
+        source_index = headings.index("Source File")
+        score_lookup = {}
+        question_scores = {}
+        correct_answers = {}
+        if answer_key is not None and answer_key.row_count == 1:
+            correct_answers = dict(zip(answer_key.data[0][answer_key.first_question_column_index:],
+                                       answer_key.data[1][answer_key.first_question_column_index:]))
+        if scores is not None:
+            score_headings = scores.data[0]
+            for row in scores.data[1:]:
+                score_lookup[row[score_headings.index("Source File")]] = row[
+                    score_headings.index("Total Score (%)")]
+                question_scores[row[score_headings.index("Source File")]] = dict(zip(
+                    score_headings[scores.first_question_column_index:],
+                    row[scores.first_question_column_index:]))
+        for index, row in enumerate(results.data[1:]):
+            self.examinees.insert("", "end", iid=str(index), values=(
+                row[id_index], row[source_index], score_lookup.get(row[source_index], "Not scored")))
+
+        def select_examinee(event=None):
+            for item in self.answers.get_children():
+                self.answers.delete(item)
+            selection = self.examinees.selection()
+            if not selection:
+                return
+            row = results.data[int(selection[0]) + 1]
+            for question, answer in zip(headings[results.first_question_column_index:],
+                                        row[results.first_question_column_index:]):
+                multiple = answer == "F" or (answer.startswith("[") and "|" in answer)
+                score = question_scores.get(row[source_index], {}).get(question)
+                result = "Correct" if score == "1" else "Incorrect" if score == "0" else "Not scored"
+                tag = "incorrect" if score == "0" else "multiple" if multiple else ""
+                self.answers.insert("", "end", values=(
+                    question, answer or "Blank", "?" if score == "0" else "=" if score == "1" else "?",
+                    correct_answers.get(question, "?"), result), tags=(tag,) if tag else ())
+            sort_answers()
+
+        self.examinees.bind("<<TreeviewSelect>>", select_examinee)
+        if results.row_count:
+            self.examinees.selection_set("0")
+            select_examinee()
+        footer = tk.Frame(self, background=PAPER)
+        footer.pack(fill=tk.X, padx=24, pady=16)
+        ttk.Label(footer, text="Red: multiple answers / incorrect results",
+                  background=PAPER).pack(side=tk.LEFT)
+
+        def open_path(path):
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(str(path))
+                else:
+                    subprocess.Popen(["open" if platform.system() == "Darwin" else "xdg-open", str(path)])
+            except OSError as error:
+                messagebox.showerror("Unable to open file", str(error), parent=self)
+
+        ttk.Button(footer, text="Another batch", command=self.destroy).pack(side=tk.RIGHT, padx=(8, 0))
+        ttk.Button(footer, text="Open Excel", style="Primary.TButton",
+                   command=lambda: open_path(workbook_path)).pack(side=tk.RIGHT)
+        ttk.Button(footer, text="Open output folder",
+                   command=lambda: open_path(workbook_path.parent)).pack(side=tk.RIGHT, padx=8)
 
 
 class ProgressTrackerWidget:
-    def __init__(self, parent: tk.Tk, maximum: int):
+    def __init__(self, parent: PackTarget, maximum: int):
         self.maximum = maximum
         self.value = 0
         self.parent = parent
+        self.results_shown = False
         pack_opts = {
             "fill": tk.X,
             "expand": 1,
@@ -413,8 +596,10 @@ class ProgressTrackerWidget:
             "pady": YPADDING
         }
         self.status_text = tk.StringVar(parent)
-        pack(ttk.Label(parent, textvariable=self.status_text, width=45),
-             **pack_opts)
+        status_label = pack(ttk.Label(parent, textvariable=self.status_text,
+                                      width=20, justify=tk.LEFT), **pack_opts)
+        status_label.bind("<Configure>", lambda event: status_label.configure(
+            wraplength=max(100, event.width)))
         self.progress_bar = pack(
             ttk.Progressbar(parent, maximum=maximum, mode="determinate"),
             **pack_opts)
@@ -433,13 +618,22 @@ class ProgressTrackerWidget:
     def set_ready_to_close(self):
         self.close_when_changes.set(1)
 
+    def show_results(self, results, scores, workbook_path, rejected_count, answer_key=None):
+        self.progress_bar.configure(value=self.maximum)
+        window = ResultsWindow(self.parent, results, scores, workbook_path, rejected_count, answer_key)
+        window.lift()
+        self.parent.wait_window(window)
+        self.results_shown = True
+
     def show_exit_button_and_wait(self):
+        # Closing the results window already requests a return to setup.
+        if self.results_shown:
+            return
         close_button = ttk.Button(self.parent,
-                                  text="Close",
+                                  text="Back to setup",
                                   command=self.set_ready_to_close)
         close_button.pack(padx=XPADDING, pady=YPADDING)
         close_button.wait_variable("Ready to Close")
-        sys.exit(0)
 
 
 class MainWindow:
@@ -458,31 +652,70 @@ class MainWindow:
 
     def __init__(self):
         app: tk.Tk = tk.Tk()
+        configure_theme(app)
         self.__app = app
-        app.title(f"{APP_NAME} - Select Inputs")
-
-        # Only windows supports ICO files. Linux and macOS support XBM files, but they are single-
-        # color and not that pretty so we just don't set an icon on other platforms. It's a minor
-        # UX thing that most people will never notice.
-        if platform.system() == "Windows":
-            iconpath = str(Path(__file__).parent / "assets" / "icon.ico")
-            app.iconbitmap(iconpath)
+        app.title(APP_NAME)
+        app.geometry("1280x780")
+        app.minsize(1200, 760)
 
         app.protocol("WM_DELETE_WINDOW", self.__on_close)
 
+        header = tk.Frame(app)
+        header.pack(fill=tk.X)
+        brand = tk.Frame(header)
+        brand.pack(side=tk.LEFT, padx=26, pady=14)
+        logo = tk.PhotoImage(file=str(Path(__file__).parent / "assets" / "psh-logo.png"))
+        factor = max(1, (max(logo.width(), logo.height()) + 55) // 56)
+        self.__logo = logo.subsample(factor, factor)
+        app.iconphoto(True, self.__logo)
+        ttk.Label(brand, image=self.__logo).pack(side=tk.LEFT, padx=(0, 14))
+        brand_text = tk.Frame(brand)
+        brand_text.pack(side=tk.LEFT)
+        ttk.Label(brand_text, text="Philippine Society of Hypertension",
+                  style="Brand.TLabel").pack(anchor="w")
+        ttk.Label(brand_text, text=APP_NAME).pack(
+            anchor="w", pady=(5, 0))
+        ttk.Label(header, text="150 QUESTIONS", style="Badge.TLabel").pack(
+            side=tk.RIGHT, padx=26)
+        ttk.Separator(app).pack(fill=tk.X)
+        hero = tk.Frame(app, background=PAPER)
+        hero.pack(fill=tk.X, padx=26, pady=(18, 16))
+        ttk.Label(hero, text="Examination Test Checker", style="Hero.TLabel").pack(anchor="w")
+        ttk.Label(hero, text="Prepare your scans, add an answer key, and review your results.",
+                  background=PAPER).pack(anchor="w", pady=(6, 0))
+
+        workspace = tk.Frame(app, background=PAPER)
+        workspace.pack(fill=tk.BOTH, expand=True, padx=26, pady=(0, 18))
+        workspace.rowconfigure(0, weight=1)
+        for column in range(3):
+            workspace.columnconfigure(column, weight=1, uniform="panels")
+
+        folders = create_card(workspace, "01", "Scans & output")
+        folders.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        references = create_card(workspace, "02", "Answer key")
+        references.grid(row=0, column=1, sticky="nsew", padx=(0, 8))
+        summary = create_card(workspace, "03", "Review & run")
+        summary.grid(row=0, column=2, sticky="nsew")
+
         self.__input_folder_picker = InputFolderPickerWidget(
-            app, self.__on_update)
-        self.__answer_key_picker = AnswerKeyPickerWidget(app, self.__on_update)
-        self.__arrangement_map_picker = ArrangementMapPickerWidget(
-            app, self.__on_update)
+            folders, self.__on_update)
+        ttk.Separator(folders).pack(fill=tk.X, padx=XPADDING, pady=12)
+        self.__answer_key_picker = AnswerKeyPickerWidget(references, self.__on_update)
+        create_and_pack_label(references, "Use one answer key per batch.")
         self.__output_folder_picker = OutputFolderPickerWidget(
-            app, self.__on_update)
+            folders, self.__on_update)
 
         self.__status_text = tk.StringVar()
-        status = tk.Label(app, textvariable=self.__status_text)
-        status.pack(fill=tk.X, expand=1, pady=(YPADDING * 2, 0))
-        self.__on_update()
+        create_and_pack_label(summary, "Configuration summary", heading=True)
+        status = ttk.Label(summary, textvariable=self.__status_text,
+                           justify=tk.LEFT, anchor="nw")
+        status.pack(fill=tk.BOTH, expand=True, padx=XPADDING, pady=12)
+        status.bind("<Configure>", lambda event: status.configure(
+            wraplength=max(100, event.width)))
+        self.__progress_frame = tk.Frame(summary)
+        self.__progress_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
+        ttk.Separator(app).pack(fill=tk.X)
         buttons_frame = tk.Frame(app)
 
         # "Open Help" Button
@@ -501,16 +734,42 @@ class MainWindow:
              side=tk.LEFT)
 
         self.__confirm_button = pack(ttk.Button(buttons_frame,
-                                                text="✔ Continue",
+                                                text="Process sheets",
+                                                style="Primary.TButton",
                                                 command=self.__confirm,
                                                 state=tk.DISABLED),
                                      padx=XPADDING,
                                      pady=YPADDING,
                                      side=tk.RIGHT)
-        pack(buttons_frame, fill=tk.X, expand=1)
+        pack(buttons_frame, fill=tk.X, padx=26, pady=(0, 10))
+        self.__on_update()
 
         self.__ready_to_continue = tk.IntVar(name="Ready to Continue")
-        app.wait_variable("Ready to Continue")
+
+    def wait_for_batch(self):
+        """Wait until the user selects folders and starts the next run."""
+        self.__ready_to_continue.set(0)
+        self.__app.wait_variable(self.__ready_to_continue)
+        return not self.cancelled
+
+    def reset_for_next_batch(self):
+        for child in self.__progress_frame.winfo_children():
+            child.destroy()
+
+        def enable(widget):
+            for child in widget.winfo_children():
+                if isinstance(child, (ttk.Button, ttk.Checkbutton)):
+                    child.configure(state=tk.NORMAL)
+                enable(child)
+
+        enable(self.__app)
+        self.__input_folder_picker.clear_folder()
+        self.__output_folder_picker.clear_folder()
+        # Do not retain runnable paths from the previous batch.
+        for name in ("input_folder", "output_folder"):
+            if hasattr(self, name):
+                delattr(self, name)
+        self.__on_update()
 
     def __on_update(self):
         ok_to_submit = True
@@ -531,10 +790,7 @@ class MainWindow:
                 new_status += f"✔ Input folder selected. {len(images)} image files found.\n"
 
         self.form_variant = self.__input_folder_picker.form_variant
-        if self.form_variant == FormVariantSelection.VARIANT_75_Q:
-            new_status += "Using 75-question form variant.\n"
-        elif self.form_variant == FormVariantSelection.VARIANT_150_Q:
-            new_status += "Using 150-question form variant.\n"
+        new_status += "Using 150-question answer sheet.\n"
 
         output_folder = self.__output_folder_picker.folder
         if output_folder is None:
@@ -554,15 +810,7 @@ class MainWindow:
                 new_status += f"❌ Selected answer keys file is not valid.\n"
                 ok_to_submit = False
 
-        arrangement_map = self.__arrangement_map_picker.file
         self.arrangement_map = None
-        if arrangement_map:
-            if scoring.verify_answer_key_sheet(arrangement_map):
-                self.arrangement_map = arrangement_map
-                new_status += f"✔ Selected key arrangement file appears to be valid.\n"
-            else:
-                new_status += f"❌ Selected key arrangement file is not valid.\n"
-                ok_to_submit = False
 
         self.multi_answers_as_f = self.__input_folder_picker.multi_answers_as_f
         if self.multi_answers_as_f:
@@ -578,7 +826,7 @@ class MainWindow:
 
         self.sort_results = self.__output_folder_picker.sort_results
         if self.sort_results:
-            new_status += f"Results will be sorted by name.\n"
+            new_status += "Results will be sorted by Examinee ID\n"
         else:
             new_status += f"Input sort order will be maintained.\n"
 
@@ -592,8 +840,8 @@ class MainWindow:
             self.debug_mode = True
 
         self.__status_text.set(new_status)
-        if ok_to_submit:
-            self.__confirm_button.configure(state=tk.NORMAL)
+        self.__confirm_button.configure(
+            state=tk.NORMAL if ok_to_submit else tk.DISABLED)
         return ok_to_submit
 
     def __disable_all(self):
@@ -601,7 +849,6 @@ class MainWindow:
         self.__input_folder_picker.disable()
         self.__output_folder_picker.disable()
         self.__answer_key_picker.disable()
-        self.__arrangement_map_picker.disable()
 
     def __confirm(self):
         if self.__on_update():
@@ -609,34 +856,55 @@ class MainWindow:
             self.__ready_to_continue.set(1)
 
     def __show_help(self):
-        helpfile = str(Path(__file__).parent / "assets" / "manual.pdf")
-        if platform.system() in ('Darwin','Linux'):
-            subprocess.Popen(['open',helpfile])
+        try:
+            manual = (Path(__file__).parent / "assets" / "manual.md").read_text(
+                encoding="utf-8")
+        except OSError as error:
+            messagebox.showerror("Help unavailable", str(error), parent=self.__app)
+            return
+        window = tk.Toplevel(self.__app)
+        window.title(f"{APP_NAME} - User guide")
+        window.geometry("850x700")
+        window.minsize(600, 400)
+        window.configure(background=PAPER)
+        frame = tk.Frame(window)
+        frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        text = tk.Text(frame, wrap="word", font=("Arial", 11), background="white",
+                       foreground=MUTED, relief="flat", padx=20, pady=16,
+                       spacing3=8, cursor="arrow")
+        scroll = ttk.Scrollbar(frame, command=text.yview)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        text.configure(yscrollcommand=scroll.set)
+        text.pack(fill=tk.BOTH, expand=True)
+        text.tag_configure("title", font=("Georgia", 23), foreground=INK, spacing3=16)
+        text.tag_configure("heading", font=("Arial", 13, "bold"), foreground=INK,
+                           spacing1=12, spacing3=10)
+        text.tag_configure("code", font=("Courier New", 10), background=PAPER)
+        in_code = False
+        for line in manual.splitlines():
+            if line.startswith("```"):
+                in_code = not in_code
+                continue
+            tag = "code" if in_code else "title" if line.startswith("# ") else (
+                "heading" if line.startswith("## ") else "")
+            content = line if in_code else line.lstrip("#").lstrip().replace("**", "").replace("`", "")
+            text.insert(tk.END, content + "\n", tag)
+        text.configure(state=tk.DISABLED)
+        ttk.Button(window, text="Close guide", command=window.destroy).pack(pady=(0, 16))
+        window.bind("<Escape>", lambda event: window.destroy())
+
+    def __show_sheet(self):
+        helpfile = str(Path(__file__).parent / "assets" /
+                       "multiple_choice_sheet_150q.pdf")
+        if platform.system() in ('Darwin', 'Linux'):
+            subprocess.Popen(['open', helpfile])
         else:
             subprocess.Popen([helpfile], shell=True)
 
-    def __show_sheet(self):
-        if (self.form_variant == FormVariantSelection.VARIANT_75_Q):
-            helpfile = str(
-                Path(__file__).parent / "assets" /
-                "multiple_choice_sheet_75q.pdf")
-            if platform.system() in ('Darwin','Linux'):
-                subprocess.Popen(['open', helpfile])
-            else:
-                subprocess.Popen([helpfile], shell=True)
-        elif (self.form_variant == FormVariantSelection.VARIANT_150_Q):
-            helpfile = str(
-                Path(__file__).parent / "assets" /
-                "multiple_choice_sheet_150q.pdf")
-            if platform.system() in ('Darwin','Linux'):
-                subprocess.Popen(['open', helpfile])
-            else:
-                subprocess.Popen([helpfile], shell=True)
-
     def __on_close(self):
-        self.__app.destroy()
-        self.__ready_to_continue.set(1)
         self.cancelled = True
+        self.__ready_to_continue.set(1)
+        self.__app.destroy()
 
     def create_and_pack_progress(self, maximum: int) -> ProgressTrackerWidget:
-        return ProgressTrackerWidget(self.__app, maximum)
+        return ProgressTrackerWidget(self.__progress_frame, maximum)
