@@ -1,16 +1,32 @@
-# Build Instructions
+﻿# Windows packaging (maintainers only)
 
-The following instructions show how to build the program into a single `.exe`
-file that can be run to install the software.
+Staff installation and usage instructions are in [readme.md](readme.md).
 
-1. Install the required modules from [`requirements.txt`](requirements.txt) if
-   you haven't already.
-2. Open a terminal in the root directory.
-3. Keep `src/assets/manual.md` and `src/assets/psh-logo.png` in the package.
-   Help displays the bundled manual inside the app; no PDF conversion is required.
-4. Install NSIS if you haven't already, and add the install location to your
-   system's PATH variable.
-5. Run the build command:
-   ```sh
-   pyinstaller -p src --add-data="src;." -y -w --icon=src/assets/icon.ico --name=open-mcr src/main_gui.py; makensis installer.nsi
+The Windows package is built with 64-bit Python 3.14 and PyInstaller. The tested
+packaging dependencies are pinned in `requirements-windows.txt`; the older
+upstream `requirements.txt` is not used for this build.
+
+1. Create a virtual environment with 64-bit Python 3.14:
+   `python -m venv .venv`
+2. Install the packaging dependencies:
+   `.\.venv\Scripts\python.exe -m pip install -r requirements-windows.txt`
+3. Obtain NSIS from https://nsis.sourceforge.io/Download and make `makensis.exe`
+   available, or pass its path to the script.
+4. Run:
+
+   ```powershell
+   .\build-windows.ps1 -MakeNsis '.\downloads\nsis-3.11\makensis.exe'
    ```
+
+The deliverable is `dist/PSH-ExamCR-Setup.exe`. The `dist/PSH-ExamCR` folder is the
+standalone application bundle; its executable requires the accompanying
+`_internal` directory. The installer includes the runtime, PSH logo, help guide,
+answer-sheet PDF, original software license, and README attribution.
+
+The installer installs for the current user, adds Start menu shortcuts, and
+registers an uninstaller in Windows Settings. Keep scans and exported results
+outside the installation folder. Close the app before updating or uninstalling.
+
+Before distributing a build, verify startup from outside the project directory,
+process a sample batch, and check installation and uninstallation on a test PC.
+The build script does not sign the executable or installer.
