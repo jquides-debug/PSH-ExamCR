@@ -1,127 +1,118 @@
-## ![OpenMCR](src/assets/wordmark.png)
+﻿# PSH-ExamCR
 
-### _Free and Open-Source Multiple Choice Exam Reader_
+### Examination Checker for the Philippine Society of Hypertension
 
-[![Continuous Integration](https://github.com/iansan5653/open-mcr/actions/workflows/continuous_integration.yml/badge.svg)](https://github.com/iansan5653/open-mcr/actions/workflows/continuous_integration.yml)
+PSH-ExamCR adapts OpenMCR for the Philippine Society of Hypertension's multiple-choice examination workflow. It reads scanned answer sheets, captures Examinee IDs and responses, and exports results for review, with optional scoring against an answer key.
 
-> **Warning**
-> As per the license of this software, no warranty is implied. The software is
-> stable but there still may be bugs. Given that students' grades are at stake,
-> please be sure to audit the results - particularly when working with low-quality scans.
+> **Built on OpenMCR — full credit to Ian Sanders and the original contributors.**
+> This repository is a fork of [OpenMCR by Ian Sanders](https://github.com/iansan5653/open-mcr). The original project provides the foundation for the answer-sheet recognition and processing used here. PSH's work builds on that foundation through organization-specific branding and examination workflows.
 
-## Background
+## Original project and acknowledgments
 
-Commercially available OMR (optical mark recognition) exam sheets, scanners, and
-processing software can cost educators and educational institutions thousands of
-dollars per year. In response to this, OpenMCR has been developed as a free and
-easy-to-use alternative. The tool includes a multiple choice exam sheet and
-works with any scanner and printer.
+**Ian Sanders** developed OpenMCR and its corresponding multiple-choice sheet as an independent study project at the **University of South Florida**, under the direction of **Dr. Autar Kaw**. We gratefully acknowledge their work and the contributions of the OpenMCR community in making accessible, open-source examination processing possible.
 
-This software and the
-corresponding multiple choice sheet were developed as an independent study
-project by Ian Sanders, a mechanical engineering student at the University of
-South Florida, under the direction of Dr. Autar Kaw.
+- **Original project and reference:** [iansan5653/open-mcr](https://github.com/iansan5653/open-mcr)
+- **Original author:** [Ian Sanders](https://github.com/iansan5653)
+- **Original technical report:** [OpenMCR independent study report](https://github.com/iansan5653/open-mcr-report/releases/tag/1.0.0)
+- **PSH fork:** [jquides-debug/PSH-ExamCR](https://github.com/jquides-debug/PSH-ExamCR)
 
-For a detailed discussion of the algorithm and features in use, please
-[read the report](https://github.com/iansan5653/open-mcr-report/releases/tag/1.0.0)
-as submitted for the original independent study course.
+The PSH name identifies this adaptation. Credit for the original OpenMCR software, recognition approach, and answer-sheet design remains with their original authors.
 
-## Installation Instructions
+## What the PSH application does
 
-Currently, packaged executables are only provided for Windows. For other operating
-systems, see [Running From Source](#running-from-source--cli).
+- Processes the supported 150-question answer-sheet layout.
+- Reads Examinee ID bubbles and answers from scanned images, retaining each source filename.
+- Optionally scores a batch using a CSV answer key.
+- Provides a results window for reviewing examinees, responses, and available scores.
+- Exports an Excel review workbook with multiple responses highlighted in red, alongside CSV results.
+- Lists rejected scans for follow-up and supports optional Multiple Choice Test Analysis (MCTA) exports.
+- Supports successive batches without restarting the application.
 
-### Windows Installation
+Written names are not transcribed. Recognition depends on the configured bubble positions and corner markers, so a redesigned form must preserve the supported layout.
 
-To install the utility, simply download the latest `.exe` file from from the
-[releases](https://github.com/iansan5653/open-mcr/releases) page and
-install it. After installation, check your Start menu for a shortcut.
+## Getting started
 
-### Running Without Install
+### Run from source
 
-For users who cannot or do not want to install the software on their machine,
-ZIP file packages are also available for each [release](https://github.com/iansan5653/open-mcr/releases). Download the file,
-extract it anywhere on your machine, and run the `main.exe` file. This method
-does not require administrator priveleges.
+Install Python with Tkinter support and pip. The repository's CI configuration targets Python 3.10; dependency versions are listed in [requirements.txt](requirements.txt).
 
-### Running From Source / CLI
+From a terminal, clone this fork and install its dependencies in a virtual environment:
 
-If you wish to customize the software, use the command line interface, or run it
-on a non-Windows device, you can run the Python program directly from the source files. This
-requires Python and Pip to be installed on your machine.
+```powershell
+git clone https://github.com/jquides-debug/PSH-ExamCR.git
+cd PSH-ExamCR
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe src/main_gui.py
+```
 
-1. Clone the reposotory using Git, or download and extract the latest `Source code (zip)` file from
-  [releases](https://github.com/iansan5653/open-mcr/releases).
-2. Open a terminal / command prompt in the extracted directory.
-3. On Mac machines with fresh Python installations, you will to update TKinter from the default.
-4. Run `pip3 install -r requirements.txt` to install dependencies.
-7. Run `python3 src/main.py` for the CLI interface or `python3 src/main_gui.py` for the graphical interface.
+These commands are for Windows PowerShell. On macOS or Linux, use `.venv/bin/python` in place of `.\.venv\Scripts\python.exe` and ensure Tkinter is available in your Python installation.
 
-> **Note**: On MacOS, if you see a black screen when running the GUI, you need to uninstall Python, install TKinter, and
-> then reinstall Python. The easiest way to do this is to manage your installation with Homebrew as described [here](https://apple.stackexchange.com/a/315121).
+### Command-line interface
 
-> **Note**: On Linux machines, you may see an error message that `opencv` or `tkinter` are not found.
-> If you see this, install those dependencies by running `sudo apt-get install python3-opencv python3-tk` and then try again.
+From the repository directory, using the same virtual environment:
 
-### Codespaces
+```powershell
+.\.venv\Scripts\python.exe src/main.py "path/to/scans" "path/to/output" --anskeys "path/to/answer-key.csv" --sort
+```
 
-For development, a pre-made environment is available in [Codespaces](https://github.com/features/codespaces):
+Omit `--anskeys` to export detected responses without scoring. Run `src/main.py --help` with the same Python executable for all available options.
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/iansan5653/open-mcr?quickstart=1)
+## Examination workflow
 
-> [!NOTE]
-> The configuration auomatically installs the [`desktop-lite`](https://github.com/devcontainers/features/tree/main/src/desktop-lite)
-> feature for running the GUI. This environment can be accessed in your browser through the forwarded `6080` port. The
-> desktop password is `vscode`.
+1. **Prepare the forms.** Use the bundled [150-question answer sheet](src/assets/multiple_choice_sheet_150q.pdf), after confirming that it is the layout approved for your examination.
+2. **Scan the completed sheets.** Save each sheet as an individual PNG, JPG, JPEG, BMP, TIFF, or TIF image in one input folder. Keep corner markers and bubble areas visible. PDF and Excel files are not scan inputs; subfolders are ignored.
+3. **Select the folders.** In the application, choose the input folder and an output folder for the batch.
+4. **Add an answer key if scoring is required.** Select a CSV containing exactly one answer row, with question headers starting at `Q1` and continuing through the last question to score, up to `Q150`.
+5. **Process and review.** Click **Process sheets**, review the results window, and compare questionable responses and rejected scans against the originals.
+6. **Open the exports.** Use **Open Excel** for the review workbook or **Open output folder** to access all generated files.
 
-## Printable Multiple Choice Sheet
+A three-question answer-key example:
 
-The multiple choice sheet that must be used with this software is available
-for printing here:
+```csv
+Q1,Q2,Q3
+A,C,B
+```
 
-* [150 Question Variant](https://github.com/iansan5653/open-mcr/raw/master/src/assets/multiple_choice_sheet_150q.pdf)
+Use a separate batch for each examination with a different answer key. Review the selected key before starting another batch.
 
-## Usage Instructions
+For complete operating instructions, output options, and troubleshooting, see the [PSH user guide](src/assets/manual.md), also available through **Help** in the application.
 
-Run the program by finding it in your Start menu after installing.
+> **Review before finalizing results:** Audit detected answers and scores, particularly for low-quality scans, multiple responses, and rejected sheets. The software is provided without warranty.
 
-For full operating instructions, see the [Manual](src/assets/manual.md) or
-click the <kbd>Open Help</kbd> button in the software.
+## Output files
 
-## Feedback / Bug Reports
+Each batch normally produces timestamped files.
 
-To report a bug, request a new feature, or provide feedback, please
-[file an issue](https://github.com/iansan5653/open-mcr/issues/new).
+| File | Purpose |
+| --- | --- |
+| `results.xlsx` | Excel review workbook with detected responses and red highlighting for multiple answers. Examinee IDs are stored as text to preserve leading zeroes. |
+| `results.csv` | Detected responses in CSV format. Import Examinee IDs as text when opening in a spreadsheet. |
+| `scores.csv` | Scores and per-question results when scoring is available. |
+| `keys.csv` | Answer key used for the batch, when available. |
+| `rejected_files.csv` | Scans whose corner markers could not be located. |
+| `mcta_*.csv` | Optional exports for Multiple Choice Test Analysis. |
 
-## License
+Calculated scores appear in `scores.csv` and the results window. Red response highlighting is available in the Excel workbook; CSV files do not store colors.
 
-### Software License
+## Feedback and development
+
+Report issues with this adaptation through the [PSH-ExamCR issue tracker](https://github.com/jquides-debug/PSH-ExamCR/issues). Include the steps to reproduce the issue and the error message, if any.
+
+The [original OpenMCR repository](https://github.com/iansan5653/open-mcr) remains the upstream reference for the project's origins and original implementation.
+
+## License and attribution
+
+### Software
 
 Copyright (C) 2019 Ian Sanders
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+This software is distributed under the **GNU General Public License, version 3 or, at your option, any later version (GPL-3.0-or-later)**. It is provided without any warranty, including implied warranties of merchantability or fitness for a particular purpose.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+See [license.txt](license.txt) for the full software license. This fork preserves the original author's credit and license notice.
 
-For the full license text, see [license.txt](./license.txt).
+### Multiple-choice answer sheet
 
-### Multiple Choice Sheet License
+The multiple-choice sheet is licensed separately under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International license (CC BY-NC-SA 4.0)**. The original notice permits sharing and modification with attribution, under the same license, and for noncommercial purposes. See the [full answer-sheet license](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
-The multiple choice sheet distributed with this software is licensed under the
-Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International license
-(CC BY-NC-SA 4.0). In summary, this means that you are free to distribute and
-modify the document so long as you share it under the same license, provide
-attribution, and do not use it for commercial purposes. For the full license,
-see
-[the Creative Commons website](https://creativecommons.org/licenses/by-nc-sa/4.0/).
-
-**Note**: You are explicitly _allowed_ to distribute the multiple choice sheet
-without attribution if using it unmodified for educational purpose and not
-in any way implying that it is your own work. This is an exception to the
-Creative Commons terms. 
+The original project also explicitly allows distribution of the **unmodified** sheet without attribution when used for educational purposes, provided that it is not presented as your own work. This exception is retained from the original README.
