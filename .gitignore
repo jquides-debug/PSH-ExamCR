@@ -1,0 +1,57 @@
+# Python environments and local configuration
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+scantron-reader/
+.env
+.env.*
+!.env.example
+.python-version
+
+# Python caches, packages and test artifacts
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.egg
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+*.log
+.ipynb_checkpoints/
+
+# Generated builds, installers and downloaded tools
+/build/
+/dist/
+/downloads/
+*.spec
+*.manifest
+*.exe
+*.msi
+/docs/_build/
+
+# Local examinee data and generated results
+/local-data/
+/results/
+/tests/**/actual_output/
+
+# OS/editor temporary files
+.DS_Store
+Thumbs.db
+Desktop.ini
+~$*
+*.tmp
+*.bak
+*.swp
