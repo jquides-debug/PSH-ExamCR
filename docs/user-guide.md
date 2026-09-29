@@ -70,6 +70,10 @@ Click a column header to sort. Click it again to reverse the order. You can sort
 
 Open Excel opens the review workbook in your associated spreadsheet app. Open output folder shows the exported files. The header also reports rejected scans.
 
+Click Analytics to open batch charts. Performance overview shows average, median and score range, a score distribution, and the ten questions with the most incorrect responses. Questions & responses lists every analyzed question, initially ordered by incorrect count; select one to see response frequencies for A-E, Blank, Multiple and Other. Green marks the answer-key choice. Click All questions to view combined response frequencies, or click table headings to sort.
+
+Analytics counts each processed scan separately, including repeated scans of an Examinee ID. Listed examinees without scans and rejected scans are excluded. Blank includes empty answers and G; Multiple includes F and combinations such as [A|B], counted once per response. Incorrect percentages use the number of graded responses for that question. A shorter answer key limits analysis to its questions. Without a key, response frequencies remain available and grades display Not scored. Closing analytics returns to the results window.
+
 Export results to Excel saves a separate score-summary workbook using the PSH Examinee Scores with Names layout. Choose the filename and location in the save dialog. The workbook contains Examinee No., Examinee Name, Score (%) and Points, with matching notes on the right. The points heading reflects the number of questions actually scored. It includes every row shown in the results page, in the current table sort order, including listed examinees without a scan. Missing scores remain blank and those rows are highlighted. A genuine zero score is exported as zero. Names require an imported examinee list with a Name, Examinee Name, Full Name, or separate first/last-name columns.
 
 ## 6. Understand the output files

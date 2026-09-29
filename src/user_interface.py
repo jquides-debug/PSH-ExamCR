@@ -17,6 +17,7 @@ import examinee_list
 import scoring
 import score_report
 import str_utils
+from analytics_window import AnalyticsWindow
 
 YPADDING = 4
 XPADDING = 7
@@ -668,6 +669,17 @@ class ResultsWindow(tk.Toplevel):
                   background=PAPER).pack(anchor="w", pady=(0, 8))
         actions = tk.Frame(footer, background=PAPER)
         actions.pack(fill=tk.X)
+
+        self.analytics_window = None
+
+        def show_analytics():
+            if self.analytics_window is None or not self.analytics_window.winfo_exists():
+                self.analytics_window = AnalyticsWindow(
+                    self, results, scores, rejected_count, answer_key)
+            self.analytics_window.lift()
+            self.analytics_window.focus_set()
+
+        ttk.Button(actions, text="Analytics", command=show_analytics).pack(side=tk.LEFT)
 
         def open_path(path):
             try:
